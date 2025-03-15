@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Models;
@@ -12,6 +8,7 @@ namespace server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ExpensesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -21,88 +18,63 @@ namespace server.Controllers
             _context = context;
         }
 
-        // GET: api/Expenses
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Expense>>> GetExpenses()
+        // ✅ Get All Expenses for a Specific Group
+        [HttpGet("group/{groupId}")]
+        public async Task<ActionResult<IEnumerable<Expense>>> GetExpensesByGroup(int groupId)
         {
-            return await _context.Expenses.ToListAsync();
+            var expenses = await _context.Expenses
+                .Where(e => e.GroupID == groupId)
+                .Include(e => e.PaidBy) // Include the user who paid
+                .ToListAsync();
+
+            return Ok(expenses);
         }
 
-        // GET: api/Expenses/5
+        // ✅ Get Expense by ID
         [HttpGet("{id}")]
         public async Task<ActionResult<Expense>> GetExpense(int id)
         {
-            var expense = await _context.Expenses.FindAsync(id);
+            var expense = await _context.Expenses
+                .Include(e => e.PaidBy)
+                .Include(e => e.Group)
+                .FirstOrDefaultAsync(e => e.ExpenseID == id);
 
             if (expense == null)
-            {
                 return NotFound();
-            }
 
-            return expense;
+            return Ok(expense);
         }
 
-        // PUT: api/Expenses/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutExpense(int id, Expense expense)
-        {
-            if (id != expense.ExpenseID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(expense).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ExpenseExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        // POST: api/Expenses
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        // ✅ Create a New Expense
         [HttpPost]
-        public async Task<ActionResult<Expense>> PostExpense(Expense expense)
+        public async Task<ActionResult<Expense>> PostExpense([FromBody] Expense expense)
         {
+            // Validate if the group exists
+            var group = await _context.Groups.FindAsync(expense.GroupID);
+            if (group == null)
+                return BadRequest(new { message = "Group does not exist" });
+
+            // Add the expense
+            expense.CreatedAt = DateTime.UtcNow;
             _context.Expenses.Add(expense);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetExpense", new { id = expense.ExpenseID }, expense);
+            return CreatedAtAction(nameof(GetExpense), new { id = expense.ExpenseID }, expense);
         }
 
-        // DELETE: api/Expenses/5
+        // ✅ Delete Expense by ID
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteExpense(int id)
         {
             var expense = await _context.Expenses.FindAsync(id);
+
             if (expense == null)
-            {
                 return NotFound();
-            }
 
             _context.Expenses.Remove(expense);
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool ExpenseExists(int id)
-        {
-            return _context.Expenses.Any(e => e.ExpenseID == id);
         }
     }
 }

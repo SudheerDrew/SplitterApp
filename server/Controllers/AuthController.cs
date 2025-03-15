@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using server.Data;
 using server.Models;
@@ -23,37 +24,58 @@ namespace server.Controllers
         }
 
         // ✅ Register New User
-        [HttpPost("register")]
-        public IActionResult Register([FromBody] UserLoginModel model)
-        {
-            if (_context.Users.Any(u => u.Email == model.Email))
-                return BadRequest(new { message = "Email already exists" });
+       [AllowAnonymous]
+[HttpPost("register")]
+public IActionResult Register([FromBody] User model)
+{
+    try
+    {
+        // Check if email already exists
+        if (_context.Users.Any(u => u.Email == model.Email))
+            return BadRequest(new { message = "Email already exists" });
 
-            var hashedPassword = HashPassword(model.Password);
-            var user = new User
-            {
-                Name = model.Name,
-                Email = model.Email,
-                PasswordHash = hashedPassword
-            };
+        // Hash the password and create the new user
+        model.PasswordHash = HashPassword(model.PasswordHash); // Ensure password hashing
+        _context.Users.Add(model);
+        _context.SaveChanges();
 
-            _context.Users.Add(user);
-            _context.SaveChanges();
+        return Ok(new { message = "User registered successfully" });
+    }
+    catch (Exception ex)
+    {
+        // Log the exception for debugging
+        Console.WriteLine($"Error in Register: {ex.Message}");
+        return StatusCode(500, "Internal server error");
+    }
+}
 
-            return Ok(new { message = "User registered successfully" });
-        }
 
         // ✅ Login User
-        [HttpPost("login")]
-        public IActionResult Login([FromBody] UserLoginModel model)
-        {
-            var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
-            if (user == null || !VerifyPassword(model.Password, user.PasswordHash))
-                return Unauthorized(new { message = "Invalid credentials" });
+       [HttpPost("login")]
+public IActionResult Login([FromBody] LoginRequest model)
+{
+    Console.WriteLine($"Login attempt for email: {model.Email}"); // Log the email
 
-            var token = GenerateJwtToken(user);
-            return Ok(new { token });
-        }
+    // Check if user exists
+    var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
+    if (user == null)
+    {
+        Console.WriteLine("No user found with this email."); // Log if user not found
+        return Unauthorized(new { message = "Invalid credentials" });
+    }
+
+    // Verify password
+    if (!VerifyPassword(model.Password, user.PasswordHash))
+    {
+        Console.WriteLine($"Password mismatch for user {model.Email}"); // Log password mismatch
+        return Unauthorized(new { message = "Invalid credentials" });
+    }
+
+    // Generate and return JWT token
+    var token = GenerateJwtToken(user);
+    Console.WriteLine($"Login successful for email: {model.Email}"); // Log successful login
+    return Ok(new { token });
+}
 
         // ✅ Generate JWT Token
         private string GenerateJwtToken(User user)
@@ -63,7 +85,7 @@ namespace server.Controllers
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim("UserID", user.UserID.ToString())
+                new Claim("UserID", user.UserID.ToString()) // Attach UserID as a claim
             };
 
             var token = new JwtSecurityToken(
@@ -91,5 +113,12 @@ namespace server.Controllers
         {
             return HashPassword(inputPassword) == storedHash;
         }
+    }
+
+    // DTO for login request (to decouple from User model)
+    public class LoginRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

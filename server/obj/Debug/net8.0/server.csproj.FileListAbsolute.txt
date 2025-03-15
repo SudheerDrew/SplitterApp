@@ -276,3 +276,4 @@ C:\Users\justi\SpitterApp\server\bin\Debug\net8.0\tr\Microsoft.CodeAnalysis.Scri
 C:\Users\justi\SpitterApp\server\bin\Debug\net8.0\zh-Hans\Microsoft.CodeAnalysis.Scripting.resources.dll
 C:\Users\justi\SpitterApp\server\bin\Debug\net8.0\zh-Hant\Microsoft.CodeAnalysis.Scripting.resources.dll
 C:\Users\justi\SpitterApp\server\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\justi\SpitterApp\server\obj\Debug\net8.0\server.sourcelink.json

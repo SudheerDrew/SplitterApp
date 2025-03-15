@@ -15,13 +15,53 @@ namespace server.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Expense Amount Precision
             modelBuilder.Entity<Expense>()
                 .Property(e => e.Amount)
-                .HasColumnType("decimal(10,2)"); // Set precision
+                .HasColumnType("decimal(10,2)");
 
+            // Payment Amount Precision
             modelBuilder.Entity<Payment>()
                 .Property(p => p.Amount)
-                .HasColumnType("decimal(10,2)"); // Set precision
+                .HasColumnType("decimal(10,2)");
+
+            // GroupMember Relationship
+            modelBuilder.Entity<GroupMember>()
+                .HasOne(gm => gm.Group)
+                .WithMany(g => g.Members)
+                .HasForeignKey(gm => gm.GroupID);
+
+            modelBuilder.Entity<GroupMember>()
+                .HasOne(gm => gm.User)
+                .WithMany(u => u.GroupMemberships)
+                .HasForeignKey(gm => gm.UserID);
+
+            // Expense Relationship
+            modelBuilder.Entity<Expense>()
+                .HasOne(e => e.Group)
+                .WithMany(g => g.Expenses)
+                .HasForeignKey(e => e.GroupID);
+
+            modelBuilder.Entity<Expense>()
+                .HasOne(e => e.PaidBy)
+                .WithMany(u => u.ExpensesPaid)
+                .HasForeignKey(e => e.UserID);
+
+            // Payment Relationships
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.Payer)
+                .WithMany(u => u.PaymentsMade)
+                .HasForeignKey(p => p.PayerID);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.Payee)
+                .WithMany(u => u.PaymentsReceived)
+                .HasForeignKey(p => p.PayeeID);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.Group)
+                .WithMany(g => g.Payments)
+                .HasForeignKey(p => p.GroupID);
         }
     }
 }

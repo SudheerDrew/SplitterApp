@@ -16,10 +16,29 @@ namespace server.Services
         // ✅ Add a New Payment
         public async Task<Payment> AddPayment(Payment payment)
         {
-            payment.PaidAt = DateTime.UtcNow; // Set the timestamp for the payment
+            payment.PaidAt = DateTime.UtcNow; // Set payment timestamp
             _context.Payments.Add(payment);
+
+            // Adjust balances for the payer and payee
+            await AdjustBalancesAfterPayment(payment);
+
             await _context.SaveChangesAsync();
             return payment;
+        }
+
+        // ✅ Adjust Balances After Payment (Updates BalanceOwed for Payer and Payee)
+        private async Task AdjustBalancesAfterPayment(Payment payment)
+        {
+            var payer = await _context.GroupMembers
+                .FirstOrDefaultAsync(gm => gm.GroupID == payment.GroupID && gm.UserID == payment.PayerID);
+            var payee = await _context.GroupMembers
+                .FirstOrDefaultAsync(gm => gm.GroupID == payment.GroupID && gm.UserID == payment.PayeeID);
+
+            if (payer != null && payee != null)
+            {
+                payer.BalanceOwed -= payment.Amount; // Reduce the payer's debt
+                payee.BalanceOwed += payment.Amount; // Increase the payee's credit
+            }
         }
 
         // ✅ Get All Payments for a Group

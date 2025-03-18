@@ -47,6 +47,10 @@ namespace server.Migrations
 
                     b.HasKey("ExpenseID");
 
+                    b.HasIndex("GroupID");
+
+                    b.HasIndex("UserID");
+
                     b.ToTable("Expenses");
                 });
 
@@ -74,6 +78,9 @@ namespace server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GroupMemberID"));
 
+                    b.Property<decimal>("BalanceOwed")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("GroupID")
                         .HasColumnType("int");
 
@@ -81,6 +88,10 @@ namespace server.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("GroupMemberID");
+
+                    b.HasIndex("GroupID");
+
+                    b.HasIndex("UserID");
 
                     b.ToTable("GroupMembers");
                 });
@@ -110,6 +121,12 @@ namespace server.Migrations
 
                     b.HasKey("PaymentID");
 
+                    b.HasIndex("GroupID");
+
+                    b.HasIndex("PayeeID");
+
+                    b.HasIndex("PayerID");
+
                     b.ToTable("Payments");
                 });
 
@@ -133,6 +150,91 @@ namespace server.Migrations
                     b.HasKey("UserID");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("server.Models.Expense", b =>
+                {
+                    b.HasOne("server.Models.Group", "Group")
+                        .WithMany("Expenses")
+                        .HasForeignKey("GroupID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("server.Models.User", "PaidBy")
+                        .WithMany("ExpensesPaid")
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("PaidBy");
+                });
+
+            modelBuilder.Entity("server.Models.GroupMember", b =>
+                {
+                    b.HasOne("server.Models.Group", "Group")
+                        .WithMany("Members")
+                        .HasForeignKey("GroupID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("server.Models.User", "User")
+                        .WithMany("GroupMemberships")
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("server.Models.Payment", b =>
+                {
+                    b.HasOne("server.Models.Group", "Group")
+                        .WithMany("Payments")
+                        .HasForeignKey("GroupID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("server.Models.User", "Payee")
+                        .WithMany("PaymentsReceived")
+                        .HasForeignKey("PayeeID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("server.Models.User", "Payer")
+                        .WithMany("PaymentsMade")
+                        .HasForeignKey("PayerID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Payee");
+
+                    b.Navigation("Payer");
+                });
+
+            modelBuilder.Entity("server.Models.Group", b =>
+                {
+                    b.Navigation("Expenses");
+
+                    b.Navigation("Members");
+
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("server.Models.User", b =>
+                {
+                    b.Navigation("ExpensesPaid");
+
+                    b.Navigation("GroupMemberships");
+
+                    b.Navigation("PaymentsMade");
+
+                    b.Navigation("PaymentsReceived");
                 });
 #pragma warning restore 612, 618
         }

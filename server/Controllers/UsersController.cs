@@ -3,9 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Models;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace server.Controllers
 {
@@ -26,7 +23,7 @@ namespace server.Controllers
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
             var users = await _context.Users
-                .Include(u => u.GroupMemberships)
+                .Include(u => u.GroupMemberships) // Include memberships
                 .ThenInclude(gm => gm.Group) // Include associated groups
                 .ToListAsync();
 
@@ -38,28 +35,28 @@ namespace server.Controllers
         public async Task<ActionResult<User>> GetUser(int id)
         {
             var user = await _context.Users
-                .Include(u => u.GroupMemberships)
+                .Include(u => u.GroupMemberships) // Include memberships
                 .ThenInclude(gm => gm.Group) // Include associated groups
                 .FirstOrDefaultAsync(u => u.UserID == id);
 
             if (user == null)
-                return NotFound();
+                return NotFound(new { message = "User not found" });
 
             return Ok(user);
         }
 
         // ✅ Update User
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, [FromBody] User updatedUser)
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] User updatedUser)
         {
             if (id != updatedUser.UserID)
-                return BadRequest();
+                return BadRequest(new { message = "User ID mismatch" });
 
             var existingUser = await _context.Users.FindAsync(id);
             if (existingUser == null)
-                return NotFound();
+                return NotFound(new { message = "User not found" });
 
-            // Update only allowed fields
+            // Update user properties
             existingUser.Name = updatedUser.Name;
             existingUser.Email = updatedUser.Email;
 
@@ -71,10 +68,10 @@ namespace server.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!UserExists(id))
-                    return NotFound();
-                else
-                    throw;
+                if (!_context.Users.Any(u => u.UserID == id))
+                    return NotFound(new { message = "User not found during update" });
+
+                throw;
             }
 
             return NoContent();
@@ -89,21 +86,15 @@ namespace server.Controllers
                 .FirstOrDefaultAsync(u => u.UserID == id);
 
             if (user == null)
-                return NotFound();
+                return NotFound(new { message = "User not found" });
 
-            // Remove related GroupMemberships before deleting the user
-            _context.GroupMembers.RemoveRange(user.GroupMemberships);
+            // Remove related memberships before deleting the user
+            _context.GroupMembers.RemoveRange(user.GroupMemberships!);
             _context.Users.Remove(user);
 
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        // Helper: Check if User Exists
-        private bool UserExists(int id)
-        {
-            return _context.Users.Any(u => u.UserID == id);
         }
     }
 }

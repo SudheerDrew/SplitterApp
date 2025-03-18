@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Models;
+using server.Services;
 
 namespace server.Controllers
 {
@@ -12,25 +13,25 @@ namespace server.Controllers
     public class PaymentsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly PaymentService _paymentService;
 
         public PaymentsController(AppDbContext context)
         {
             _context = context;
+            _paymentService = new PaymentService(_context); // Initialize service for payment logic
         }
 
-        // ✅ Get All Payments for the Logged-In User
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Payment>>> GetPayments()
+        // ✅ Get All Payments for a Group
+        [HttpGet("group/{groupId}")]
+        public async Task<ActionResult<IEnumerable<Payment>>> GetPaymentsByGroup(int groupId)
         {
-            var userId = int.Parse(User.FindFirst("UserID")!.Value); // Get user ID from JWT claims
+            // Validate if the group exists
+            var group = await _context.Groups.FindAsync(groupId);
+            if (group == null)
+                return NotFound(new { message = "Group does not exist" });
 
-            var payments = await _context.Payments
-                .Where(p => p.PayerID == userId || p.PayeeID == userId) // Fetch payments involving the user
-                .Include(p => p.Payer) // Include Payer details
-                .Include(p => p.Payee) // Include Payee details
-                .Include(p => p.Group) // Include Group details
-                .ToListAsync();
-
+            // Fetch payments
+            var payments = await _paymentService.GetPaymentsByGroup(groupId);
             return Ok(payments);
         }
 
@@ -38,53 +39,69 @@ namespace server.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Payment>> GetPayment(int id)
         {
-            var payment = await _context.Payments
-                .Include(p => p.Payer)
-                .Include(p => p.Payee)
-                .Include(p => p.Group)
-                .FirstOrDefaultAsync(p => p.PaymentID == id);
-
+            var payment = await _paymentService.GetPaymentById(id);
             if (payment == null)
-                return NotFound();
+                return NotFound(new { message = "Payment not found" });
 
             return Ok(payment);
         }
 
         // ✅ Create a New Payment
-        [HttpPost]
-        public async Task<ActionResult<Payment>> PostPayment([FromBody] Payment payment)
-        {
-            // Validate that the Group exists
-            var group = await _context.Groups.FindAsync(payment.GroupID);
-            if (group == null)
-                return BadRequest(new { message = "Group does not exist" });
+[HttpPost]
+public async Task<ActionResult<Payment>> PostPayment([FromBody] Payment payment)
+{
+    // Validate if the group exists
+    var group = await _context.Groups.Include(g => g.Members).FirstOrDefaultAsync(g => g.GroupID == payment.GroupID);
+    if (group == null)
+        return BadRequest(new { message = "Group does not exist" });
 
-            // Validate that the Payee exists
-            var payee = await _context.Users.FindAsync(payment.PayeeID);
-            if (payee == null)
-                return BadRequest(new { message = "Payee does not exist" });
+    // Ensure payer and payee are part of the group
+    var isPayerMember = group.Members.Any(m => m.UserID == payment.PayerID);
+    var isPayeeMember = group.Members.Any(m => m.UserID == payment.PayeeID);
 
-            // Validate that the Payer exists
-            var payer = await _context.Users.FindAsync(payment.PayerID);
-            if (payer == null)
-                return BadRequest(new { message = "Payer does not exist" });
+    if (!isPayerMember || !isPayeeMember)
+        return BadRequest(new { message = "Payer or Payee is not a member of the group" });
 
-            // Add the payment
-            payment.PaidAt = DateTime.UtcNow;
-            _context.Payments.Add(payment);
-            await _context.SaveChangesAsync();
+    try
+    {
+        // Set the PaidAt field to the current UTC time
+        payment.PaidAt = DateTime.UtcNow;
 
-            return CreatedAtAction(nameof(GetPayment), new { id = payment.PaymentID }, payment);
-        }
+        // Add the payment to the database
+        _context.Payments.Add(payment);
 
-        // ✅ Delete Payment
+        // Adjust balances in the GroupMembers table
+        var payer = group.Members.FirstOrDefault(m => m.UserID == payment.PayerID);
+        var payee = group.Members.FirstOrDefault(m => m.UserID == payment.PayeeID);
+
+        if (payer != null)
+            payer.BalanceOwed -= payment.Amount; // Reduce payer's owed balance
+        if (payee != null)
+            payee.BalanceOwed += payment.Amount; // Increase payee's owed balance
+
+        // Save changes to the database
+        await _context.SaveChangesAsync();
+
+        // Return the created payment
+        return CreatedAtAction(nameof(GetPayment), new { id = payment.PaymentID }, payment);
+    }
+    catch (Exception ex)
+    {
+        // Handle errors
+        return StatusCode(500, new { message = "Failed to process payment", details = ex.Message });
+    }
+}
+
+
+        // ✅ Delete Paymentx
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePayment(int id)
         {
             var payment = await _context.Payments.FindAsync(id);
             if (payment == null)
-                return NotFound();
+                return NotFound(new { message = "Payment not found" });
 
+            // Remove the payment
             _context.Payments.Remove(payment);
             await _context.SaveChangesAsync();
 

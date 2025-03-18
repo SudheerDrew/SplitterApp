@@ -38,17 +38,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Add CORS policy to allow frontend requests
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp",
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:3000")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") // Allow the frontend app
+              .AllowAnyHeader()                   // Allow all headers (e.g., Authorization, Content-Type)
+              .AllowAnyMethod()                   // Allow all HTTP methods (GET, POST, PUT, DELETE)
+              .AllowCredentials();                // Allow sending cookies or authorization headers
+    });
 });
 
-// Add Controllers & Swagger
-builder.Services.AddControllers();
+// Add Controllers & JSON Options
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+});
+
+// Add Swagger for API documentation
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -62,11 +68,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Enable Authentication & Authorization Middleware
-app.UseAuthentication();  // 🔥 Added this line!
-app.UseAuthorization();
-
+// Enable CORS (before Authentication & Authorization)
 app.UseCors("AllowReactApp");
+
+// Enable Authentication & Authorization Middleware
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

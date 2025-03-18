@@ -1,17 +1,30 @@
 import React, { useState } from 'react';
 import { addExpense } from '../services/expenseService';
 
+const decodeJWT = (token) => {
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(
+    atob(base64)
+      .split('')
+      .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+      .join('')
+  );
+  return JSON.parse(jsonPayload);
+};
+
 const ExpenseForm = ({ groupId, onSuccess }) => {
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    addedBy: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
@@ -20,11 +33,21 @@ const ExpenseForm = ({ groupId, onSuccess }) => {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('jwtToken'); // Retrieve token
-      await addExpense({ groupId, ...formData }, token);
+      const token = localStorage.getItem('jwtToken');
+      const decodedToken = decodeJWT(token);
+      const userId = decodedToken.UserID; // Extract UserID from token
+
+      const expenseData = {
+        description: formData.description,
+        amount: parseFloat(formData.amount),
+        groupId: parseInt(groupId, 10),
+        userId: userId
+      };
+
+      await addExpense(expenseData, token);
       setSuccess('Expense added successfully!');
-      onSuccess(); // Callback to refresh the group details
-      setFormData({ description: '', amount: '', addedBy: '' }); // Reset form
+      onSuccess(); // Refresh group details
+      setFormData({ description: '', amount: '' });
     } catch (err) {
       setError('Failed to add expense. Please try again.');
     }
@@ -55,18 +78,6 @@ const ExpenseForm = ({ groupId, onSuccess }) => {
           id="amount"
           name="amount"
           value={formData.amount}
-          onChange={handleChange}
-          required
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="addedBy" className="form-label">Added By</label>
-        <input
-          type="text"
-          className="form-control"
-          id="addedBy"
-          name="addedBy"
-          value={formData.addedBy}
           onChange={handleChange}
           required
         />

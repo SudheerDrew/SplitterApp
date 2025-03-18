@@ -5,16 +5,16 @@ const GroupCard = ({ group }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="card mb-3 shadow-sm">
+    <div className="card">
       <div className="card-body">
         <h5 className="card-title">{group.groupName}</h5>
-        <p className="card-text">
-          Total Expenses: ₹{group.totalExpenses || 0} <br />
-          Members: {group.membersCount || 0}
-        </p>
+        <p className="card-text">Members: {group.members?.length || 0}</p>
         <button
           className="btn btn-primary"
-          onClick={() => navigate(`/groups/${group.groupID}`)}
+          onClick={() => {
+            console.log('Navigating to groupID:', group.groupID); // Debugging log
+            navigate(`/groups/${group.groupID}`);
+          }}
         >
           View Details
         </button>

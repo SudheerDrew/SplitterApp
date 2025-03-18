@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { addPayment } from '../services/paymentService';
 
-const PaymentForm = ({ groupId, members, onSuccess }) => {
+const PaymentForm = ({ groupId, members = [], onSuccess }) => {
   const [formData, setFormData] = useState({
-    payerId: '',
-    payeeId: '',
+    payerID: '',
+    payeeID: '',
     amount: '',
   });
   const [error, setError] = useState('');
@@ -12,6 +12,8 @@ const PaymentForm = ({ groupId, members, onSuccess }) => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError(''); // Clear previous errors on input change
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
@@ -20,13 +22,27 @@ const PaymentForm = ({ groupId, members, onSuccess }) => {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('jwtToken'); // Retrieve token
-      await addPayment({ groupId, ...formData }, token); // Call payment service
+      const token = localStorage.getItem('jwtToken');
+
+      // Ensure the structure matches the backend expectation
+      const paymentData = {
+        PayerID: formData.payerID,  // Match backend property names
+        PayeeID: formData.payeeID,
+        GroupID: groupId,
+        Amount: parseFloat(formData.amount), // Ensure amount is numeric
+      };
+
+      console.log('Submitting Payment:', paymentData); // Debug log
+
+      // Call the addPayment service
+      await addPayment(paymentData, token);
+
       setSuccess('Payment recorded successfully!');
       onSuccess(); // Refresh group details
-      setFormData({ payerId: '', payeeId: '', amount: '' }); // Reset form
+      setFormData({ payerID: '', payeeID: '', amount: '' }); // Reset form fields
     } catch (err) {
-      setError('Failed to record payment. Please try again.');
+      console.error('Error recording payment:', err.response || err.message); // Debug log
+      setError(err.response?.data?.message || 'Failed to record payment. Please try again.');
     }
   };
 
@@ -36,36 +52,36 @@ const PaymentForm = ({ groupId, members, onSuccess }) => {
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
       <div className="mb-3">
-        <label htmlFor="payerId" className="form-label">Payer</label>
+        <label htmlFor="payerID" className="form-label">Payer</label>
         <select
           className="form-control"
-          id="payerId"
-          name="payerId"
-          value={formData.payerId}
+          id="payerID"
+          name="payerID"
+          value={formData.payerID}
           onChange={handleChange}
           required
         >
           <option value="">Select Payer</option>
           {members.map((member) => (
-            <option key={member.userId} value={member.userId}>
+            <option key={member.userID} value={member.userID}>
               {member.name}
             </option>
           ))}
         </select>
       </div>
       <div className="mb-3">
-        <label htmlFor="payeeId" className="form-label">Payee</label>
+        <label htmlFor="payeeID" className="form-label">Payee</label>
         <select
           className="form-control"
-          id="payeeId"
-          name="payeeId"
-          value={formData.payeeId}
+          id="payeeID"
+          name="payeeID"
+          value={formData.payeeID}
           onChange={handleChange}
           required
         >
           <option value="">Select Payee</option>
           {members.map((member) => (
-            <option key={member.userId} value={member.userId}>
+            <option key={member.userID} value={member.userID}>
               {member.name}
             </option>
           ))}

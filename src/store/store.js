@@ -6,10 +6,10 @@ import paymentsReducer from './paymentsSlice';
 
 const store = configureStore({
   reducer: {
-    auth: authReducer,
-    groups: groupsReducer,
-    expenses: expensesReducer,
-    payments: paymentsReducer,
+    auth: authReducer, // Manages user authentication and token
+    groups: groupsReducer, // Manages groups and related data
+    expenses: expensesReducer, // Manages expenses within groups
+    payments: paymentsReducer, // Manages payments within groups
   },
 });
 

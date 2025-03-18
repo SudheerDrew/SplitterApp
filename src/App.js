@@ -15,10 +15,15 @@ const App = () => {
       <Navbar />
       <div className="container mt-4">
         <Routes>
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
+          {/* Public Routes */}
+          <Route path="/register" element={!isLoggedIn ? <Register /> : <Navigate to="/dashboard" />} />
+          <Route path="/login" element={!isLoggedIn ? <Login /> : <Navigate to="/dashboard" />} />
+
+          {/* Protected Routes */}
           <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
           <Route path="/groups/:groupId" element={isLoggedIn ? <GroupDetails /> : <Navigate to="/login" />} />
+
+          {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>

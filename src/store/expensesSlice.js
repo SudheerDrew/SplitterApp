@@ -7,10 +7,10 @@ const expensesSlice = createSlice({
   },
   reducers: {
     setExpenses(state, action) {
-      state.expenses = action.payload;
+      state.expenses = action.payload; // Set entire expenses list
     },
     addExpense(state, action) {
-      state.expenses.push(action.payload);
+      state.expenses.push(action.payload); // Add a single expense
     },
   },
 });
